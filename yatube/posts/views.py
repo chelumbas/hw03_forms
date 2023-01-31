@@ -1,13 +1,11 @@
 from django.core.paginator import Paginator
 from django.shortcuts import redirect, render, get_object_or_404
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 
 from .models import Post, Group, User
 from .forms import PostForm
 
 POSTS_TO_DISPLAY = 10
-CHARACTERS_FOR_TITLE = 30
 
 
 def get_page_objects(object_list, request):
@@ -44,7 +42,6 @@ def profile(request, username):
     page_obj = get_page_objects(posts, request)
     context = {
         'author': author,
-        'post_count': author.posts.count(),
         'page_obj': page_obj,
     }
     return render(request, 'posts/profile.html', context)
@@ -52,41 +49,32 @@ def profile(request, username):
 
 def post_detail(request, post_id):
     post = get_object_or_404(Post, pk=post_id)
-    title = f'Пост {post.text[0:CHARACTERS_FOR_TITLE]}'
     context = {
         'post': post,
-        'title': title,
     }
     return render(request, 'posts/post_detail.html', context)
 
 
 @login_required
-@csrf_exempt
 def post_create(request):
     form = PostForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        post = form.save(commit=False)
-        post.author = request.user
-        post.save()
-        return redirect('posts:profile', post.author.username)
-    context = {
-        'form': form,
-        'title': 'Добавить запись',
-    }
-    return render(request, 'posts/create_post.html', context)
+    if not form.is_valid():
+        return render(request, 'posts/create_post.html', {'form': form})
+    post = form.save(commit=False)
+    post.author = request.user
+    post.save()
+    return redirect('posts:profile', post.author.username)
 
 
 @login_required
-@csrf_exempt
 def post_edit(request, post_id):
     post = get_object_or_404(Post, pk=post_id)
-    form = PostForm(request.POST, instance=post)
+    form = PostForm(request.POST or None, instance=post)
     if form.is_valid():
-        post.save()
+        form.save()
         return redirect('posts:post_detail', post_id)
     context = {
         'is_edit': True,
         'form': form,
-        'title': 'Редактировать запись',
     }
     return render(request, 'posts/create_post.html', context)
